@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Task_3</string>
+    <string name="status_0">Status: Not started</string>
+    <string name="status_in_progress">Status: Downloading</string>
+    <string name="status_done">Status: Complete!</string>
+    <string name="button_download">Download</string>
+    <string name="button_open">Open</string>
+    <string name="not_found">File not found</string>
+    <string name="download_title">Download_image</string>
+    <string name="download_description">Downloading...</string>
+    <string name="retry">Try again</string>
+    <string name="connection_lost">Connection lost! Please, check the internet connection</string>
+</resources>
