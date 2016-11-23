@@ -1,44 +1,40 @@
 package com.example.user.task_3;
 
 import android.app.DownloadManager;
-import android.app.usage.NetworkStats;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
-import android.provider.MediaStore;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.squareup.picasso.Picasso;
+import org.apache.commons.io.IOUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -47,7 +43,11 @@ public class MainActivity extends AppCompatActivity {
     SharedPreferences sharedPreferences;
 
     static final String IMAGE_ADDRESS = "https://i.ytimg.com/vi/gGBKCWMSw4o/maxresdefault.jpg";
-    
+    static final int REQUEST_CODE = 1;
+
+    String[] PERMISSIONS = {"android.permission.READ_EXTERNAL_STORAGE","android.permission.WRITE_EXTERNAL_STORAGE"};
+
+
 
     DownloadManager downloadManager;
     ImageView pictureView;
@@ -66,6 +66,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.a_main);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(PERMISSIONS, REQUEST_CODE);
+        }
 
         connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         statusText = (TextView) findViewById(R.id.status_text);
@@ -78,7 +81,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         if (!loadImageFromStorage()) {
-
 
             sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -165,12 +167,9 @@ public class MainActivity extends AppCompatActivity {
                         pictureView.setImageBitmap(bitmap);
                         statusText.setText(R.string.status_done);
 
-                        //bitmap
                         saveImageToInternalStorage(bitmap);
 
-
-                        overrideButton(downloadId);
-
+                        overrideButton();
 
                     } catch (FileNotFoundException e) {
 
@@ -192,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void overrideButton(final long downloadId) {
+    private void overrideButton() {
         button.setEnabled(true);
         button.setText(R.string.button_open);
         button.setOnClickListener(new View.OnClickListener() {
@@ -200,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Intent openImgIntent = new Intent();
                 openImgIntent.setType(Intent.ACTION_VIEW);
-                openImgIntent.setDataAndType(downloadManager.getUriForDownloadedFile(downloadId), "image/*");
+                openImgIntent.setDataAndType(Uri.fromFile(new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "file.jpg")), "image/*");
                 startActivity(openImgIntent);
             }
         });
@@ -210,99 +209,47 @@ public class MainActivity extends AppCompatActivity {
     private boolean loadImageFromStorage() {
 
         try {
-            loadedFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + "/saved_images/filename");
+            loadedFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "file.jpg");
             Bitmap b = BitmapFactory.decodeStream(new FileInputStream(loadedFile));
-
-            Log.d("Loading: ", loadedFile.getAbsolutePath());
 
             pictureView.setImageBitmap(b);
 
             progressBar.setVisibility(View.INVISIBLE);
 
             statusText.setText(R.string.status_done);
-            button.setEnabled(true);
-            button.setText(R.string.button_open);
-            button.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Intent openImgIntent = new Intent();
-                    openImgIntent.setType(Intent.ACTION_VIEW);
-                    Log.d("opening ", loadedFile.getAbsolutePath().toString());
-                    openImgIntent.setDataAndType(Uri.fromFile(loadedFile), "image/*");
-                    startActivity(openImgIntent);
-
-                }
-            });
+            overrideButton();
             return true;
         } catch (FileNotFoundException e) {
+            Log.e("loading", e.getMessage());
             return false;
         }
     }
 
 
-    /* Checks if external storage is available for read and write */
-    public boolean isExternalStorageWritable() {
-        String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
-    }
-
 
     public void saveImageToInternalStorage(Bitmap image) {
 
-//        try {
-//            // Use the compress method on the Bitmap object to write image to
-//            // the OutputStream
-//            FileOutputStream fos = openFileOutput("filename", Context.MODE_PRIVATE);
-//
-//            // Writing the bitmap to the output stream
-//
-//            image.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-//            fos.close();
-//
-//            Log.d("saveToInternalStorage()", "saved");
-//            return true;
-//        } catch (Exception e) {
-//            Log.e("saveToInternalStorage()", e.getMessage());
-//            return false;
-//        }
+        File localFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "file.jpg");
+        if (!localFile.exists()) {
+            FileOutputStream out;
+            FileInputStream fis = null;
+            try {
+                out = new FileOutputStream(localFile);
+                if (fis != null) {
+                    IOUtils.copy(fis, out);
+                    fis.close();
+                }
+                if (out != null) {
 
-
-        // WTF
-
-
-        String root = Environment.getExternalStorageDirectory().toString();
-        File myDir = new File(root + "/saved_images/");
-        myDir.mkdirs();
-
-        String fname = "Image";
-        File file = new File(myDir, fname);
-
-
-        try {
-            if (!file.getParentFile().exists())
-                file.getParentFile().mkdirs();
-            if (!file.getParentFile().exists())
-                file.getParentFile().mkdirs();
-            if (!file.getParentFile().exists())
-                file.getParentFile().mkdirs();
-            if (!file.exists())
-                file.createNewFile();
-
-            FileOutputStream out = new FileOutputStream(file);
-            image.compress(Bitmap.CompressFormat.JPEG, 90, out);
-            out.flush();
-            out.close();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+                    image.compress(Bitmap.CompressFormat.JPEG, 100, out);
+                    out.flush();
+                    out.close();
+                }
+            } catch (IOException e) {
+                Log.e("error", e.getMessage());
+            }
         }
-
-        // END WTF
     }
-
 
 
 
@@ -326,6 +273,21 @@ public class MainActivity extends AppCompatActivity {
         unregisterReceiver(receiver);
     }
 
+
+    @Override
+
+    public void onRequestPermissionsResult(int permsRequestCode, String[] permissions, int[] grantResults){
+
+        switch(permsRequestCode){
+
+            case 1:
+
+                boolean readAccepted = grantResults[0]== PackageManager.PERMISSION_GRANTED;
+                boolean writeAccepted = grantResults[1]== PackageManager.PERMISSION_GRANTED;
+
+                break;
+        }
+    }
 }
 
 
